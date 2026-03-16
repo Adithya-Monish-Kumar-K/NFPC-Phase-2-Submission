@@ -1107,7 +1107,7 @@ def compute_composite_features(static_feats, txn_feats, graph_feats, geo_feats):
 
 
 # ===================================================================
-# GRAPH EMBEDDINGS (Node2Vec + Louvain Communities)
+# GRAPH EMBEDDINGS (Louvain Communities + Structural Centrality)
 # ===================================================================
 
 def compute_graph_embeddings(sd):

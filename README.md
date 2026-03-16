@@ -57,11 +57,11 @@ Our approach attacks the problem across three distinct layers:
 
 ### A. Feature Engineering (289 Features)
 
-We hand-crafted features specifically targeting 13 known money-mule typologies.
+We hand-crafted features specifically targeting known money-mule behavioral patterns.
 The vast majority (279) are strict **Label-Free / Structural** features computed before training:
 
 - **Transaction Dynamics:** Pass-through velocity, temporal activity peaks, burst-dormancy ratios, Benford's law deviations, threshold structuring.
-- **Graph & Network:** Degree centrality, PageRank, Louvain community detection, DeepWalk Node2Vec embeddings.
+- **Graph & Network:** Degree centrality, PageRank, Louvain community detection, betweenness centrality, clustering coefficients.
 - **Temporal Graph:** 6-month historical graph evolution and rolling activity windows.
 - **Infrastructure:** Geo-spatial IP diversity, shared-IP exposure, and account balance trajectories.
 
@@ -78,7 +78,17 @@ Additionally, to capture powerful guilt-by-association signals without leaking t
 9. `branch_collusion_score`: Composite interaction of branch density × shared suspicious counterparties.
 10. `branch_susp_cp_score`: Composite interaction of branch density × direct mule counterparties.
 
-### B. Label Denoising
+### B. Anomaly Detection
+
+To capture accounts that deviate from normal behavioral patterns, we apply three complementary unsupervised anomaly detection methods:
+
+- **Autoencoder**: A neural network trained to reconstruct normal account feature vectors; high reconstruction error flags anomalous accounts.
+- **Isolation Forest**: An ensemble of random trees that isolates outliers by exploiting their tendency to require fewer splits.
+- **Local Outlier Factor (LOF)**: A density-based method that identifies accounts in sparse neighborhoods relative to their peers.
+
+These anomaly scores are appended as additional features for the downstream ensemble.
+
+### C. Label Denoising
 
 Given the massive class imbalance and inherent noise in suspicious activity reporting, we utilized a three-pronged approach:
 
@@ -86,7 +96,7 @@ Given the massive class imbalance and inherent noise in suspicious activity repo
 2. **Alert-Reason Scrutiny**: Deferring to the model rather than the label for vague "Routine Investigation" flags.
 3. **Confident Learning**: Using the `cleanlab` framework to identify and down-weight highly-probable mislabeled accounts.
 
-### C. Tri-Track Meta-Stacking Ensemble Architecture
+### D. Tri-Track Meta-Stacking Ensemble Architecture
 
 To maximize predictive power and generalization across both seen and unseen network clusters, we built a complex **35-model ensemble** leveraging 7 distinct base algorithms and a multi-track meta-learning system.
 
