@@ -80,11 +80,10 @@ Additionally, to capture powerful guilt-by-association signals without leaking t
 
 ### B. Anomaly Detection
 
-To capture accounts that deviate from normal behavioral patterns, we apply three complementary unsupervised anomaly detection methods:
+To capture accounts that deviate from normal behavioral patterns, we apply two complementary unsupervised anomaly detection methods:
 
 - **Autoencoder**: A neural network trained to reconstruct normal account feature vectors; high reconstruction error flags anomalous accounts.
 - **Isolation Forest**: An ensemble of random trees that isolates outliers by exploiting their tendency to require fewer splits.
-- **Local Outlier Factor (LOF)**: A density-based method that identifies accounts in sparse neighborhoods relative to their peers.
 
 These anomaly scores are appended as additional features for the downstream ensemble.
 

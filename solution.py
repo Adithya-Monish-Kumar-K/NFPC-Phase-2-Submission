@@ -7,12 +7,12 @@ All groupby operations use native pandas/numpy — zero row-level apply() calls
 on large DataFrames.
 
 Pipeline Overview:
-  Phase 1: Two-pass chunked transaction feature engineering (114 features)
+  Phase 1: Single-pass chunked transaction feature engineering
   Phase 2: Static/profile features (account age, KYC, demographics)
   Phase 3: Graph/network features from counterparty edges + community detection
   Phase 4: Temporal graph features + money flow chain analysis
-  Phase 5: Anomaly detection features (Autoencoder, IsolationForest, LOF)
-  Phase 6: Red-herring detection & label denoising (Cleanlab + temporal validation)
+  Phase 5: Anomaly detection features (Autoencoder, IsolationForest)
+  Phase 6: Label denoising (Cleanlab + temporal weight adjustment)
   Phase 7: 7-model ensemble (LGB + XGB + CB + ET + HGB + LabelFree-ET + Network-ET)
   Phase 8: Tri-track meta-stacking with learned blender + calibration
   Phase 9: Temporal window estimation (changepoint detection)
@@ -764,10 +764,6 @@ def compute_geo_features(sd):
     log.info(f"  Geo features: {feats.shape}")
     return feats
 
-
-# ===================================================================
-# MCC ANOMALY FEATURES
-# ===================================================================
 
 # ===================================================================
 # PART TRANSACTION TYPE FEATURES
@@ -1828,7 +1824,7 @@ def generate_investigation_profiles(results, risk_scores, all_feats_aug,
         "Layered/Subtle": [("iforest_score", 0, "gt_median"), ("ae_recon_error", 0, "gt_median")],
         "Salary Exploitation": [("salary_exploit_score", 0.3, "gt")],
         "Branch Collusion": [("branch_collusion_score", 0, "gt")],
-        "MCC Anomaly": [("mcc_entropy", 0, "gt_median")],
+        "MCC Anomaly": [("mcc_anomaly_mean_abs_z", 0, "gt_median")],
     }
 
     # Pre-compute medians for "gt_median" rules
@@ -2046,7 +2042,7 @@ def run_ablation_study(features, cleaned_labels, sd):
             ["degree", "weighted_degree", "edge_", "counterparty_", "top_cp",
              "shared_cp", "suspicious_cp", "two_hop", "fanin", "fanout"])},
         "Graph Embeddings": {c for c in all_cols if any(c.startswith(p) for p in
-            ["n2v_", "community_"])},
+            ["pagerank", "betweenness", "clustering_coeff", "community_"])},
         "Geo/IP/Balance": {c for c in all_cols if any(c.startswith(p) for p in
             ["geo_", "ip_n", "unique_ips", "shared_ip", "bal_mean", "bal_std",
              "bal_min", "bal_max", "bal_range"])},
@@ -2495,10 +2491,10 @@ def train_models(features, cleaned_labels, sd, edges_df, ip_acct_map, branch_acc
     spw = max(1, (y_train == 0).sum() / max((y_train == 1).sum(), 1))
 
     # ─── Pre-compute per-fold label features (leakage-free) ───
-    log.info("  Pre-computing per-fold label features (6 calls)...")
     train_ids_arr = np.array(train_ids)
     fold_label_cache = {}
     fold_splits = list(skf.split(X_tr, y_train))
+    log.info(f"  Pre-computing per-fold label features ({len(fold_splits) + 1} calls)...")
 
     for fold_idx, (ti, vi) in enumerate(fold_splits):
         fold_mule_ids = set(train_ids_arr[ti][y_train[ti] == 1])
@@ -2596,9 +2592,6 @@ def train_models(features, cleaned_labels, sd, edges_df, ip_acct_map, branch_acc
         "colsample_bytree": bp["cs"], "reg_alpha": bp["ra"], "reg_lambda": bp["rl"],
     }
 
-    # Multi-seed training with 5-fold CV (variance reduction)
-    MULTI_SEEDS = [42, 123, 7]
-    n_seeds = len(MULTI_SEEDS)
     lgb_oof = np.zeros(len(X_tr))
     lgb_test = np.zeros(len(X_te))
     lgb_model = None
@@ -3730,14 +3723,12 @@ if __name__ == "__main__":
         lf_test = full_label_feats.loc[test_ids].values.astype(np.float32)
         X_te_aug = np.column_stack([X_te, lf_test])
 
-        # Feature selection: LGB was trained on full 289 features (before selection),
-        # while XGB/CB/ET/HGB were trained on the selected subset.
-        # LF models use X_te (base features only, no label features, no selection).
-        # NET models use the selected features indexed by net_col_idx.
-        X_te_aug_full = X_te_aug  # 289 features — for LGB
+        # LGB uses all augmented features; XGB/CB/ET/HGB use the selected subset.
+        # LF models use X_te (base features only); NET models use net_col_idx.
+        X_te_aug_full = X_te_aug
         if sel_idx is not None:
             sel_idx_arr = np.array(sel_idx)
-            X_te_aug_sel = X_te_aug[:, sel_idx_arr]  # 200 features — for XGB/CB/ET/HGB/NET
+            X_te_aug_sel = X_te_aug[:, sel_idx_arr]
             log.info(f"  Applied feature selection: {X_te_aug_sel.shape[1]} features")
         else:
             X_te_aug_sel = X_te_aug
