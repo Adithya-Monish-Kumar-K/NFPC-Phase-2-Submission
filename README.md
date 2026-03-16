@@ -8,8 +8,6 @@ https://github.com/Adithya-Monish-Kumar-K/NFPC-Phase-2-Submission
 
 End-to-end anti-money laundering (AML) mule account detection pipeline that processes over 400 million transactions across 160,153 bank accounts to identify potential money mule accounts using a multi-model stacking ensemble.
 
-The codebase represents a highly optimized **Tri-Track Meta-Stacking Ensemble**, designed to maximize Out-Of-Fold AUC and support instantaneous inference on hidden test sets via `--mode predict`.
-
 ## 1. Environment Setup
 
 ### Hardware Requirements
@@ -24,7 +22,7 @@ The codebase represents a highly optimized **Tri-Track Meta-Stacking Ensemble**,
 - **Required Libraries:**
 
 ```bash
-pip install numpy pandas pyarrow scikit-learn lightgbm xgboost catboost optuna networkx shap cleanlab torch ruptures
+pip install numpy pandas pyarrow scikit-learn lightgbm xgboost catboost optuna networkx python-louvain shap cleanlab torch ruptures matplotlib
 ```
 
 ## 2. Steps to Reproduce Results
@@ -33,7 +31,9 @@ Before running the script, ensure the competition dataset files and folders (`tr
 
 ### Option A: Instant Inference (Scoring Mode)
 
-Run this mode to evaluate the provided model weights against the hidden test set.
+Run this mode to evaluate the provided model weights against the test set.
+
+*Note: Before running this, make sure that you have downloaded the models from github, or that you have run the full training pipeline.*
 
 ```bash
 python solution.py --mode predict

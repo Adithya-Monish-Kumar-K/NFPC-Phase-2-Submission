@@ -79,6 +79,16 @@ REF_DATE = pd.Timestamp("2025-06-30")
 BENFORD = np.array([np.log10(1 + 1 / d) for d in range(1, 10)])
 SEED = 42
 N_JOBS = 16
+USE_GPU = os.environ.get("USE_GPU", "0") == "1"  # Set USE_GPU=1 to enable CUDA for XGBoost
+if USE_GPU:
+    try:
+        import torch as _torch
+        XGB_DEVICE = "cuda" if _torch.cuda.is_available() else "cpu"
+        del _torch
+    except Exception:
+        XGB_DEVICE = "cpu"
+else:
+    XGB_DEVICE = "cpu"
 np.random.seed(SEED)
 
 
@@ -2635,7 +2645,7 @@ def train_models(features, cleaned_labels, sd, edges_df, ip_acct_map, branch_acc
     def xgb_obj(trial):
         p = {
             "objective": "binary:logistic", "eval_metric": "auc",
-            "tree_method": "hist", "device": "cuda", "n_estimators": 1000, "verbosity": 0,
+            "tree_method": "hist", "device": XGB_DEVICE, "n_estimators": 1000, "verbosity": 0,
             "learning_rate": trial.suggest_float("lr", 0.01, 0.15, log=True),
             "max_depth": trial.suggest_int("md", 4, 10),
             "min_child_weight": trial.suggest_int("mcw", 1, 50),
@@ -2666,7 +2676,7 @@ def train_models(features, cleaned_labels, sd, edges_df, ip_acct_map, branch_acc
         Xft, Xfv = get_fold_data(fold_idx, ti, vi)
         m = xgb.XGBClassifier(
             objective="binary:logistic", eval_metric="auc", tree_method="hist",
-            device="cuda", n_estimators=2000, verbosity=0, random_state=SEED, n_jobs=N_JOBS,
+            device=XGB_DEVICE, n_estimators=2000, verbosity=0, random_state=SEED, n_jobs=N_JOBS,
             scale_pos_weight=spw,
             learning_rate=bp2["lr"], max_depth=bp2["md"], min_child_weight=bp2["mcw"],
             subsample=bp2["ss"], colsample_bytree=bp2["cs"],
@@ -2680,7 +2690,7 @@ def train_models(features, cleaned_labels, sd, edges_df, ip_acct_map, branch_acc
     xgb_auc = roc_auc_score(y_train, xgb_oof)
     log.info(f"  XGBoost OOF AUC: {xgb_auc:.5f}")
 
-    # Free XGB GPU memory before CatBoost
+    # Free XGB memory before CatBoost
     del study2
     gc.collect()
 
