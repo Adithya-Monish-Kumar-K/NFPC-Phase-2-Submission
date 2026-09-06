@@ -1,4 +1,4 @@
-# AML Mule Account Detection — Code Submission
+# AML Mule Account Detection
 
 ## Github Link to Externally Hosted Model Files:
 
