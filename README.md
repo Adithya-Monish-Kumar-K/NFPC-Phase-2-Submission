@@ -1,9 +1,5 @@
 # AML Mule Account Detection
 
-## Github Link to Externally Hosted Model Files:
-
-https://github.com/Adithya-Monish-Kumar-K/NFPC-Phase-2-Submission
-
 ## Overview
 
 End-to-end anti-money laundering (AML) mule account detection pipeline that processes over 400 million transactions across 160,153 bank accounts to identify potential money mule accounts using a multi-model stacking ensemble.
